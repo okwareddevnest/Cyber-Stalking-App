@@ -1,0 +1,1 @@
+// Automatically a server component

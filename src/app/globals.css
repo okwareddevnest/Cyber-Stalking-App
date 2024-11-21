@@ -1,0 +1,12 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* shadcn/ui styles */
+
+@layer base {
+     :root {
+        --font-geist-sans: 'Your Font', sans-serif;
+        --font-geist-mono: 'Your Mono Font', monospace;
+    }
+}
