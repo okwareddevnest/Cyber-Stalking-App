@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@clerk/nextjs';
+import { auth } from '@clerk/nextjs/server';
 import { connectToDatabase } from '@/utils/db';
-import { EvidenceMetadata, ChainOfCustodyEntry } from '@/types/evidence';
 import { GridFSBucket } from 'mongodb';
 import { Readable } from 'stream';
 
@@ -9,52 +8,70 @@ export async function POST(request: NextRequest) {
   const { userId } = auth();
 
   if (!userId) {
-    return NextResponse.redirect('/sign-in');
-  }
-
-  const data = await request.formData();
-  const file = data.get('file') as File;
-
-  if (!file) {
-    return NextResponse.json({ success: false, error: 'No file uploaded.' }, { status: 400 });
+    return NextResponse.json(
+      { success: false, error: 'Unauthorized' },
+      { status: 401 }
+    );
   }
 
   try {
-    const db = await connectToDatabase();
-    const bucket = new GridFSBucket(db, { bucketName: 'evidenceFiles' });
+    const formData = await request.formData();
+    const file = formData.get('file') as File;
+    const description = formData.get('description') as string;
 
-    // Convert the File to a Node.js Readable stream
+    if (!file) {
+      return NextResponse.json(
+        { success: false, error: 'No file provided' },
+        { status: 400 }
+      );
+    }
+
+    // Convert File to Buffer
     const buffer = Buffer.from(await file.arrayBuffer());
+
+    // Connect to MongoDB and get GridFS bucket
+    const db = await connectToDatabase();
+    const bucket = new GridFSBucket(db, {
+      bucketName: 'evidenceFiles',
+    });
+
+    // Create a readable stream from the buffer
     const stream = Readable.from(buffer);
 
-    // Prepare metadata with chain of custody
-    const metadata: EvidenceMetadata = {
-      uploadedBy: userId,
-      uploadDate: new Date(),
-      fileName: file.name,
-      fileType: file.type,
-      fileSize: file.size,
-      chainOfCustody: [
-        {
-          action: 'Uploaded',
+    // Upload file to GridFS
+    const uploadStream = bucket.openUploadStream(file.name, {
+      metadata: {
+        uploadedBy: userId,
+        description,
+        originalName: file.name,
+        mimeType: file.type,
+        uploadDate: new Date(),
+        chainOfCustody: [{
+          action: 'UPLOAD',
           timestamp: new Date(),
           performedBy: userId,
-        },
-      ],
-    };
+        }],
+      },
+    });
 
-    // Upload the file to GridFS with metadata
-    const uploadStream = bucket.openUploadStream(file.name, { metadata });
-    stream.pipe(uploadStream);
-
-    await new Promise<void>((resolve, reject) => {
-      uploadStream.on('error', reject);
-      uploadStream.on('finish', resolve);
+    await new Promise((resolve, reject) => {
+      stream.pipe(uploadStream)
+        .on('error', reject)
+        .on('finish', resolve);
     });
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('Error uploading file:', error);
-    return NextResponse.json({ success: false, error: 'Failed to upload evidence.' }, { status: 500 });
+    console.error('Error uploading evidence:', error);
+    return NextResponse.json(
+      { success: false, error: 'Failed to upload evidence' },
+      { status: 500 }
+    );
   }
 }
+
+export const config = {
+  api: {
+    bodyParser: false,
+  },
+};

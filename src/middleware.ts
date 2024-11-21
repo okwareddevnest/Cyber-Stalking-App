@@ -11,6 +11,7 @@ const publicRoutes = [
   '/anonymous-report/*',
   '/api/anonymous-report',
   '/socket.io/*',
+  '/api/evidence/upload',
 ];
 
 export default async function middleware(request: NextRequest) {

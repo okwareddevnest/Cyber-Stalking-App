@@ -28,20 +28,22 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
+      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         <ClerkProvider
           appearance={{
             variables: {
-              colorPrimary: '#000', // Customize as needed
+              colorPrimary: '#000',
             },
           }}
           publishableKey={process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}
         >
-          <Navbar />
-          {children}
-          <PanicButton />
+          <div className="min-h-screen flex flex-col">
+            <Navbar />
+            <main className="flex-grow">
+              {children}
+            </main>
+            <PanicButton />
+          </div>
         </ClerkProvider>
       </body>
     </html>
